@@ -16,6 +16,7 @@ RUN apk add --no-cache \
     libpq-dev \
     mysql-client \
     icu-dev \
+    icu-libs \
     libzip-dev \
     freetype-dev \
     libjpeg-turbo-dev \
@@ -30,9 +31,11 @@ RUN apk add --no-cache \
         gd \
         pcntl \
         opcache \
+    && apk add --no-cache --virtual .build-deps autoconf gcc g++ make \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    && rm -rf /var/cache/apk/*
+    && apk del .build-deps \
+    && rm -rf /var/cache/apk/* /tmp/pear
 
 # PHP production config
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
