@@ -18,8 +18,6 @@ class Event extends Model
         'description',
         'type',
         'status',
-        'start_date',
-        'end_date',
         'timeline',
         'registration_config',
         'budget_amount',
@@ -31,8 +29,6 @@ class Event extends Model
     protected function casts(): array
     {
         return [
-            'start_date' => 'date',
-            'end_date' => 'date',
             'timeline' => 'array',
             'registration_config' => 'array',
         ];

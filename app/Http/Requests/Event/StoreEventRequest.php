@@ -28,8 +28,6 @@ class StoreEventRequest extends FormRequest
             'type' => ['nullable', 'string', 'in:corporate_business,social_private,entertainment_arts,sport_wellness,government_formal'],
             'venue' => ['nullable', 'string', 'max:255'],
             'status' => ['required', 'in:pra,running,post,completed'],
-            'start_date' => ['nullable', 'date'],
-            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'timeline' => ['nullable', 'array'],
             'budget_amount' => ['nullable', 'numeric', 'min:0'],
             'revenue_amount' => ['nullable', 'numeric', 'min:0'],
