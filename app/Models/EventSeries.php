@@ -155,6 +155,11 @@ class EventSeries extends Model
         return $this->hasMany(EventTeamAssignment::class);
     }
 
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(EventSeriesContact::class);
+    }
+
     public function purchaseOrders(): HasMany
     {
         return $this->hasMany(PurchaseOrder::class);

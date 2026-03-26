@@ -8,6 +8,7 @@ use App\Models\ChartOfAccount;
 use App\Models\EventSeriesSponsor;
 use App\Models\EventTeamAssignment;
 use App\Models\EventSeries;
+use App\Models\EventSeriesContact;
 use App\Models\EventStaff;
 use App\Models\EventVendor;
 use App\Models\Expense;
@@ -578,5 +579,80 @@ class EventSubResourceController extends Controller
             'debit' => 0,
             'credit' => $expense->amount,
         ]);
+    }
+
+    // --- Contact Persons ---
+
+    public function listContacts(EventSeries $series)
+    {
+        Gate::authorize('view', $series->event);
+
+        return response()->json([
+            'data' => $series->contacts()
+                ->with('staff.employee')
+                ->orderBy('sort_order')
+                ->get()
+                ->map(fn ($c) => [
+                    'id' => $c->id,
+                    'event_staff_id' => $c->event_staff_id,
+                    'label' => $c->label,
+                    'sort_order' => $c->sort_order,
+                    'employee_name' => $c->staff?->employee?->full_name,
+                    'employee_number' => $c->staff?->employee_number,
+                    'phone' => $c->staff?->employee?->phone,
+                    'email' => $c->staff?->employee?->email,
+                    'role_in_event' => $c->staff?->role_in_event,
+                ]),
+        ]);
+    }
+
+    public function addContact(Request $request, EventSeries $series)
+    {
+        Gate::authorize('update', $series->event);
+
+        $validated = $request->validate([
+            'event_staff_id' => 'required|integer|exists:event_staff,id',
+            'label' => 'nullable|string|max:255',
+        ]);
+
+        $staff = EventStaff::findOrFail($validated['event_staff_id']);
+        abort_if($staff->event_series_id !== $series->id, 422, 'Staff not assigned to this series.');
+
+        $contact = EventSeriesContact::firstOrCreate(
+            [
+                'event_series_id' => $series->id,
+                'event_staff_id' => $validated['event_staff_id'],
+            ],
+            [
+                'label' => $validated['label'] ?? null,
+                'sort_order' => $series->contacts()->count(),
+            ],
+        );
+
+        return response()->json(['data' => $contact], 201);
+    }
+
+    public function updateContact(Request $request, EventSeries $series, EventSeriesContact $contact)
+    {
+        Gate::authorize('update', $series->event);
+        abort_if($contact->event_series_id !== $series->id, 404);
+
+        $validated = $request->validate([
+            'label' => 'nullable|string|max:255',
+            'sort_order' => 'nullable|integer|min:0',
+        ]);
+
+        $contact->update($validated);
+
+        return response()->json(['data' => $contact]);
+    }
+
+    public function removeContact(EventSeries $series, EventSeriesContact $contact)
+    {
+        Gate::authorize('update', $series->event);
+        abort_if($contact->event_series_id !== $series->id, 404);
+        $contact->delete();
+
+        return response()->noContent();
     }
 }

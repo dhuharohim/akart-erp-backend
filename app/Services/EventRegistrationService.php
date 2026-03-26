@@ -177,6 +177,16 @@ class EventRegistrationService
             ] : null,
             'categories' => $prices,
             'custom_fields' => $fields,
+            'contact_persons' => $series->contacts()
+                ->with('staff.employee')
+                ->orderBy('sort_order')
+                ->get()
+                ->map(fn ($c) => [
+                    'name' => $c->staff?->employee?->full_name,
+                    'role' => $c->label ?? $c->staff?->role_in_event,
+                    'phone' => $c->staff?->employee?->phone,
+                    'email' => $c->staff?->employee?->email,
+                ])->values(),
             'turnstile_site_key' => config('services.turnstile.site_key', ''),
         ];
     }

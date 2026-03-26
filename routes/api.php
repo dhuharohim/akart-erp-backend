@@ -89,6 +89,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('series/{series}/expenses', [EventSubResourceController::class, 'addExpense']);
         Route::delete('series/{series}/expenses/{expense}', [EventSubResourceController::class, 'removeExpense']);
         Route::get('series/{series}/analytics', [EventSubResourceController::class, 'analytics']);
+        Route::get('series/{series}/contacts', [EventSubResourceController::class, 'listContacts']);
+        Route::post('series/{series}/contacts', [EventSubResourceController::class, 'addContact']);
+        Route::put('series/{series}/contacts/{contact}', [EventSubResourceController::class, 'updateContact']);
+        Route::delete('series/{series}/contacts/{contact}', [EventSubResourceController::class, 'removeContact']);
 
         // Series registration config (admin)
         Route::get('series/{series}/price-series', [EventRegistrationConfigController::class, 'indexPriceSeries']);
