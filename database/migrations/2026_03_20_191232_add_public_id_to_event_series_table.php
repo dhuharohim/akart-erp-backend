@@ -11,7 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('event_series', function (Blueprint $table) {
-            $table->string('public_id', 36)->nullable()->unique()->after('series_number');
+            $table->string('public_id', 36)->nullable()->unique();
         });
 
         // Back-fill existing rows with UUIDs
