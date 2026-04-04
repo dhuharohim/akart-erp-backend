@@ -36,8 +36,8 @@ Route::prefix('v1')->group(function (): void {
     // Public registration routes (no auth) — by public_id (UUID)
     Route::get('public/register/{publicId}', [PublicEventRegistrationController::class, 'show']);
     Route::post('public/register/{publicId}', [PublicEventRegistrationController::class, 'register']);
+    Route::post('public/register/{publicId}/upload', [PublicEventRegistrationController::class, 'uploadFile']);
     Route::get('public/register/{publicId}/ticket/{registrationNumber}', [PublicEventRegistrationController::class, 'ticket']);
-    Route::get('public/register/{publicId}/status/{idempotencyKey}', [PublicEventRegistrationController::class, 'status']);
     Route::get('public/invoices/{invoiceId}', [XenditInvoiceController::class, 'showPublic']);
     Route::post('public/check-in/{publicId}/auth', [PublicEventRegistrationController::class, 'checkInAuth']);
     Route::post('public/check-in/{publicId}/lookup', [PublicEventRegistrationController::class, 'checkInLookup']);
@@ -117,6 +117,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('series/{series}/registrations/guest-book-pdf', [EventRegistrationController::class, 'guestBookPdf']);
         Route::get('series/{series}/attendance/{type}/{id}', [EventRegistrationController::class, 'attendanceHistory']);
         Route::get('series/{series}/registrations/{registration}', [EventRegistrationController::class, 'show']);
+        Route::delete('series/{series}/registrations/{registration}', [EventRegistrationController::class, 'destroy']);
 
         Route::apiResource('vendors', VendorController::class);
         Route::get('vendors/{vendor}/items', [VendorController::class, 'itemsIndex']);

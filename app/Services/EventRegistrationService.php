@@ -47,14 +47,20 @@ class EventRegistrationService
             abort_if(($quota - $count) <= 0, 422, 'This category is sold out for the current pricing period.');
         }
 
-        // Dispatch job for processing
-        ProcessRegistration::dispatch($series->id, $data, $idempotencyKey);
+        // Run registration processing synchronously
+        ProcessRegistration::dispatchSync($series->id, $data, $idempotencyKey);
+
+        // Fetch the created registration
+        $registration = EventRegistration::where('idempotency_key', $idempotencyKey)->first();
+
+        if (! $registration) {
+            abort(422, 'Registration failed. Please try again.');
+        }
 
         return [
-            'registration' => null,
-            'invoice_url' => null,
-            'ticket_url' => null,
-            'queued' => true,
+            'registration' => $registration->load(['category', 'priceSeries']),
+            'invoice_url' => $registration->xendit_invoice_url,
+            'ticket_url' => $this->buildTicketUrl($series, $registration),
         ];
     }
 
@@ -122,10 +128,25 @@ class EventRegistrationService
             ];
         }
 
-        $fields = $series->registrationFields()
-            ->where('is_enabled', true)
+        $fieldGroups = $series->registrationFieldGroups()
+            ->with(['fields' => fn ($q) => $q->where('is_enabled', true)->orderBy('sort_order')])
             ->orderBy('sort_order')
-            ->get();
+            ->get()
+            ->map(fn ($g) => [
+                'id' => $g->id,
+                'name' => $g->name,
+                'fields' => $g->fields->map(fn ($f) => [
+                    'id' => $f->id,
+                    'field_name' => $f->field_name,
+                    'field_label' => $f->field_label,
+                    'field_type' => $f->field_type,
+                    'is_required' => $f->is_required,
+                    'options' => $f->options,
+                    'max_length' => $f->max_length,
+                ])->values(),
+            ])
+            ->filter(fn ($g) => $g['fields']->isNotEmpty())
+            ->values();
 
         $config = $series->registration_config ?? [];
         $event = $series->event;
@@ -176,7 +197,7 @@ class EventRegistrationService
                 'end_date' => $activePriceSeries->end_date,
             ] : null,
             'categories' => $prices,
-            'custom_fields' => $fields,
+            'custom_field_groups' => $fieldGroups,
             'contact_persons' => $series->contacts()
                 ->with('staff.employee')
                 ->orderBy('sort_order')

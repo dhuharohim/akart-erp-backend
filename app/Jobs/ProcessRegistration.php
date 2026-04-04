@@ -8,21 +8,15 @@ use App\Models\EventCategoryPrice;
 use App\Models\EventRegistration;
 use App\Models\EventSeries;
 use App\Services\XenditService;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
-class ProcessRegistration implements ShouldQueue
+class ProcessRegistration
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    public int $tries = 1;
+    use Dispatchable;
 
     public function __construct(
         private readonly int $seriesId,
@@ -109,8 +103,10 @@ class ProcessRegistration implements ShouldQueue
                 $xendit->createInvoice($registration);
             }
 
-            // Send e-ticket email
-            $this->sendETicketIfRequired($series, $registration);
+            // Send e-ticket email only for free registrations (already paid)
+            if ($amount <= 0) {
+                $this->sendETicketIfRequired($series, $registration);
+            }
         });
     }
 

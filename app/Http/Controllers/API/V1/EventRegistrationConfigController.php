@@ -236,7 +236,7 @@ class EventRegistrationConfigController extends Controller
         $this->authorizeView($series);
 
         return response()->json([
-            'data' => $series->registrationFields()->orderBy('sort_order')->get(),
+            'data' => $series->registrationFieldGroups()->with('fields')->get(),
         ]);
     }
 
@@ -244,24 +244,43 @@ class EventRegistrationConfigController extends Controller
     {
         $this->authorizeUpdate($series);
         $data = $request->validate([
-            'fields' => 'required|array',
-            'fields.*.field_name' => 'required|string|max:100',
-            'fields.*.field_label' => 'required|string|max:255',
-            'fields.*.field_type' => 'required|in:text,textarea,number,select,date,email,tel',
-            'fields.*.is_required' => 'nullable|boolean',
-            'fields.*.is_enabled' => 'nullable|boolean',
-            'fields.*.options' => 'nullable|array',
-            'fields.*.sort_order' => 'nullable|integer',
+            'groups' => 'required|array',
+            'groups.*.name' => 'required|string|max:255',
+            'groups.*.sort_order' => 'nullable|integer',
+            'groups.*.fields' => 'required|array|min:1',
+            'groups.*.fields.*.field_name' => 'required|string|max:100',
+            'groups.*.fields.*.field_label' => 'required|string|max:255',
+            'groups.*.fields.*.field_type' => 'required|in:text,textarea,number,select,date,email,tel,file,location',
+            'groups.*.fields.*.is_required' => 'nullable|boolean',
+            'groups.*.fields.*.is_enabled' => 'nullable|boolean',
+            'groups.*.fields.*.options' => 'nullable|array',
+            'groups.*.fields.*.sort_order' => 'nullable|integer',
+            'groups.*.fields.*.max_length' => 'nullable|integer|min:1',
         ]);
 
+        // Delete old data
         $series->registrationFields()->delete();
+        $series->registrationFieldGroups()->delete();
 
-        foreach ($data['fields'] as $field) {
-            $series->registrationFields()->create(array_merge($field, ['event_id' => $series->event_id]));
+        // Recreate groups with nested fields
+        foreach ($data['groups'] as $gi => $groupData) {
+            $group = $series->registrationFieldGroups()->create([
+                'event_id' => $series->event_id,
+                'name' => $groupData['name'],
+                'sort_order' => $groupData['sort_order'] ?? $gi,
+            ]);
+
+            foreach ($groupData['fields'] as $fi => $fieldData) {
+                $group->fields()->create(array_merge($fieldData, [
+                    'event_id' => $series->event_id,
+                    'event_series_id' => $series->id,
+                    'sort_order' => $fieldData['sort_order'] ?? $fi,
+                ]));
+            }
         }
 
         return response()->json([
-            'data' => $series->registrationFields()->orderBy('sort_order')->get(),
+            'data' => $series->registrationFieldGroups()->with('fields')->get(),
         ]);
     }
 

@@ -10,6 +10,7 @@ class EventRegistrationField extends Model
     protected $fillable = [
         'event_id',
         'event_series_id',
+        'field_group_id',
         'field_name',
         'field_label',
         'field_type',
@@ -17,6 +18,7 @@ class EventRegistrationField extends Model
         'is_enabled',
         'options',
         'sort_order',
+        'max_length',
     ];
 
     protected function casts(): array
@@ -31,5 +33,10 @@ class EventRegistrationField extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(EventRegistrationFieldGroup::class, 'field_group_id');
     }
 }

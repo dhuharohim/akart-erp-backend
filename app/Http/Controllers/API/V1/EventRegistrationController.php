@@ -138,6 +138,16 @@ class EventRegistrationController extends Controller
         return response()->json(['data' => $records]);
     }
 
+    public function destroy(EventSeries $series, EventRegistration $registration)
+    {
+        Gate::authorize('delete', $series->event);
+        abort_if($registration->event_series_id !== $series->id, 404);
+
+        $registration->delete();
+
+        return response()->json(['message' => 'Registration deleted.']);
+    }
+
     public function guestBookPdf(EventSeries $series)
     {
         Gate::authorize('view', $series->event);

@@ -9,6 +9,7 @@ use App\Models\EventSeries;
 use App\Models\EventStaff;
 use App\Services\EventRegistrationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class PublicEventRegistrationController extends Controller
 {
@@ -56,6 +57,15 @@ class PublicEventRegistrationController extends Controller
 
         $validated = $request->validate($rules);
 
+        // Validate required custom fields
+        $enabledFields = $series->registrationFields()->where('is_enabled', true)->get();
+        foreach ($enabledFields as $field) {
+            $value = $validated['custom_fields'][$field->field_name] ?? null;
+            if ($field->is_required && empty($value)) {
+                abort(422, "The field '{$field->field_label}' is required.");
+            }
+        }
+
         // Verify Cloudflare Turnstile (skip if not configured)
         if (! empty($validated['turnstile_token'])) {
             abort_if(
@@ -70,30 +80,14 @@ class PublicEventRegistrationController extends Controller
 
         $result = $this->service->register($series, $validated, $idempotencyKey);
 
-        // If registration was already processed (idempotency hit)
-        if ($result['registration']) {
-            return response()->json([
-                'data' => [
-                    'registration_number' => $result['registration']->registration_number,
-                    'amount' => $result['registration']->amount,
-                    'invoice_url' => $result['invoice_url'],
-                    'ticket_url' => $result['ticket_url'] ?? null,
-                    'queued' => false,
-                ],
-            ], 200);
-        }
-
-        // Registration is queued
         return response()->json([
             'data' => [
-                'registration_number' => null,
-                'amount' => null,
-                'invoice_url' => null,
-                'ticket_url' => null,
-                'queued' => true,
-                'message' => 'Your registration is being processed. You will receive a confirmation shortly.',
+                'registration_number' => $result['registration']->registration_number,
+                'amount' => $result['registration']->amount,
+                'invoice_url' => $result['invoice_url'],
+                'ticket_url' => $result['ticket_url'] ?? null,
             ],
-        ], 202);
+        ], 200);
     }
 
     public function ticket(string $publicId, string $registrationNumber)
@@ -108,32 +102,6 @@ class PublicEventRegistrationController extends Controller
 
         return response()->json([
             'data' => $this->service->getPublicTicketData($series, $registration),
-        ]);
-    }
-
-    public function status(string $publicId, string $idempotencyKey)
-    {
-        $series = EventSeries::where('public_id', $publicId)
-            ->with('event')
-            ->firstOrFail();
-
-        $registration = EventRegistration::where('idempotency_key', $idempotencyKey)->first();
-
-        if (! $registration) {
-            return response()->json([
-                'data' => ['status' => 'processing'],
-            ]);
-        }
-
-        return response()->json([
-            'data' => [
-                'status' => 'completed',
-                'registration_number' => $registration->registration_number,
-                'amount' => $registration->amount,
-                'invoice_url' => $registration->xendit_invoice_url,
-                'ticket_url' => $this->buildTicketUrl($series, $registration),
-                'payment_status' => $registration->payment_status,
-            ],
         ]);
     }
 
@@ -387,6 +355,22 @@ class PublicEventRegistrationController extends Controller
             ]);
 
         return response()->json(['data' => $staffList]);
+    }
+
+    public function uploadFile(Request $request, string $publicId)
+    {
+        $series = EventSeries::where('public_id', $publicId)->firstOrFail();
+
+        $request->validate([
+            'file' => 'required|file|max:5120',
+            'field_name' => 'required|string|max:100',
+        ]);
+
+        $file = $request->file('file');
+        $path = $file->store("registrations/{$series->id}/uploads", 'public');
+        $url = Storage::disk('public')->url($path);
+
+        return response()->json(['data' => ['url' => $url, 'path' => $path]]);
     }
 
     private function buildTicketUrl(EventSeries $series, EventRegistration $registration): string

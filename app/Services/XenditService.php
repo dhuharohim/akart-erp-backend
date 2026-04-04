@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Mail\ETicketMail;
 use App\Models\EventRegistration;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 
 class XenditService
 {
@@ -128,6 +130,12 @@ class XenditService
         if ($status === 'PAID' || $status === 'SETTLED') {
             $registration->payment_status = 'paid';
             $registration->paid_at = now();
+            $registration->save();
+
+            // Send e-ticket after successful payment
+            $this->sendETicketIfRequired($registration);
+
+            return;
         } elseif ($status === 'EXPIRED') {
             $registration->payment_status = 'expired';
         } elseif (in_array($status, ['FAILED', 'VOIDED'])) {
@@ -135,5 +143,32 @@ class XenditService
         }
 
         $registration->save();
+    }
+
+    private function sendETicketIfRequired(EventRegistration $registration): void
+    {
+        $series = $registration->series;
+        if (! $series) {
+            return;
+        }
+
+        $config = $series->registration_config ?? [];
+        $requireEmailTicket = (bool) ($config['email_required'] ?? false);
+        if (! $requireEmailTicket || empty($registration->email)) {
+            return;
+        }
+
+        $baseUrl = rtrim((string) env('PUBLIC_WEB_URL', config('app.url')), '/');
+        $ticketUrl = "{$baseUrl}/register/{$series->public_id}/ticket/{$registration->registration_number}";
+
+        try {
+            Mail::to($registration->email)->send(new ETicketMail(
+                $series->event?->name ?? '',
+                $series->name,
+                $registration->registration_number,
+                $ticketUrl,
+            ));
+        } catch (\Throwable) {
+        }
     }
 }

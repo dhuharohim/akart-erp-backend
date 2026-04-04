@@ -129,6 +129,11 @@ class EventSeries extends Model
         return $this->hasMany(EventRegistrationField::class);
     }
 
+    public function registrationFieldGroups(): HasMany
+    {
+        return $this->hasMany(EventRegistrationFieldGroup::class)->orderBy('sort_order');
+    }
+
     public function registrations(): HasMany
     {
         return $this->hasMany(EventRegistration::class);
